@@ -61,7 +61,7 @@ func newTsNetServer() tsnet.Server {
 	}
 
 	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		panic("failed to create default state directory")
+		panic(err.Error())
 	}
 
 	return tsnet.Server{
