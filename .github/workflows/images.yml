@@ -18,7 +18,9 @@ jobs:
       - uses: WillAbides/setup-go-faster@v1.7.0
         with:
           go-version: 1.18
-      - uses: imjasonh/setup-ko@v0.4
+      - uses: imjasonh/setup-ko@v0.6
       - run: |
           ko publish --bare --platform=linux/amd64,linux/arm64 \
           --tags=$(git describe --tag --always --dirty) ./
+        env:
+          KO_DOCKER_REPO: ghcr.io/4310v343k/${{ github.event.repository.name }}

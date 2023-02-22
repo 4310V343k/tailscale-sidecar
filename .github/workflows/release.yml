@@ -25,7 +25,9 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: imjasonh/setup-ko@v0.4
+      - uses: imjasonh/setup-ko@v0.6
       - run: |
           ko publish --bare --platform=linux/amd64,linux/arm64 \
           --tags=latest,$(git describe --tag --always --dirty) ./
+        env:
+          KO_DOCKER_REPO: ghcr.io/4310v343k/${{ github.event.repository.name }}
