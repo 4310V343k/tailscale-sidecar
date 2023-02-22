@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 
 	"tailscale.com/client/tailscale"
@@ -68,7 +70,57 @@ func newTsNetServer() tsnet.Server {
 	}
 }
 
-func proxyBind(s *tsnet.Server, b *Binding) {
+func proxyDial(s *tsnet.Server, b *Binding) {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", b.From))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if b.Tls {
+		ln = tls.NewListener(ln, &tls.Config{
+			GetCertificate: tailscale.GetCertificate,
+		})
+	}
+
+	log.Printf("started inbound tailscale proxy from %d to %v (tls: %t)", b.From, b.To, b.Tls)
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		go func(left net.Conn) {
+			defer left.Close()
+			right, err := s.Dial(context.Background(), "tcp", strings.Trim(b.To, "ts://"))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer right.Close()
+
+			var wg sync.WaitGroup
+			proxyConn := func(a, b net.Conn) {
+				defer wg.Done()
+				_, err := io.Copy(a, b)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+			}
+
+			wg.Add(2)
+			go proxyConn(right, left)
+			go proxyConn(left, right)
+
+			wg.Wait()
+		}(conn)
+	}
+}
+
+func proxyListen(s *tsnet.Server, b *Binding) {
 	ln, err := s.Listen("tcp", fmt.Sprintf(":%d", b.From))
 	if err != nil {
 		log.Println(err)
@@ -81,7 +133,7 @@ func proxyBind(s *tsnet.Server, b *Binding) {
 		})
 	}
 
-	log.Printf("started proxy bind from %d to %v (tls: %t)", b.From, b.To, b.Tls)
+	log.Printf("started outbound tailscale proxy from %d to %v (tls: %t)", b.From, b.To, b.Tls)
 
 	for {
 		conn, err := ln.Accept()
@@ -138,7 +190,11 @@ func main() {
 		wg.Add(1)
 		go func(binding Binding) {
 			defer wg.Done()
-			proxyBind(&s, &binding)
+			if strings.HasPrefix(binding.To, "ts://") {
+				proxyDial(&s, &binding)
+			} else {
+				proxyListen(&s, &binding)
+			}
 		}(binding)
 	}
 	wg.Wait()
