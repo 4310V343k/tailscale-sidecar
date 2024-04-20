@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"sync"
 
 	"tailscale.com/tsnet"
@@ -139,17 +140,19 @@ func main() {
 
 	s := newTsNetServer()
 
-	err = s.Start()
-	if err != nil {
-		panic(err)
-	}
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func(){
+			for sig := range c {
+					log.Printf("Received %s, logging out...", sig)
+					lc, err := s.LocalClient()
+					if err != nil {
+						panic(err)
+					}
 
-	lc, err := s.LocalClient()
-	if err != nil {
-		panic(err)
-	}
-
-	defer lc.Logout(context.Background())
+					lc.Logout(context.Background())
+			}
+	}()
 
 	var wg sync.WaitGroup
 	for _, binding := range bindings {
