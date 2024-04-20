@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -143,7 +144,12 @@ func main() {
 		panic(err)
 	}
 
-	defer s.Close()
+	lc, err := s.LocalClient()
+	if err != nil {
+		panic(err)
+	}
+
+	defer lc.Logout(context.Background())
 
 	var wg sync.WaitGroup
 	for _, binding := range bindings {
