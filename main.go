@@ -142,8 +142,12 @@ func main() {
 	s := newTsNetServer()
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.)
-	signal.Notify(c, os.Interrupt)
+
+	signal.Notify(c,
+    syscall.SIGHUP,
+    syscall.SIGINT,
+    syscall.SIGTERM,
+    syscall.SIGQUIT)
 	go func(){
 			for sig := range c {
 					log.Printf("Received %s, logging out...", sig)
