@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 
 	"tailscale.com/tsnet"
 )
@@ -141,6 +142,7 @@ func main() {
 	s := newTsNetServer()
 
 	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.)
 	signal.Notify(c, os.Interrupt)
 	go func(){
 			for sig := range c {
@@ -151,6 +153,7 @@ func main() {
 					}
 
 					lc.Logout(context.Background())
+					os.Exit(0)
 			}
 	}()
 
