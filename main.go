@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync"
 
-	"tailscale.com/client/tailscale"
 	"tailscale.com/tsnet"
 )
 
@@ -63,8 +62,9 @@ func newTsNetServer() tsnet.Server {
 	}
 
 	return tsnet.Server{
-		Dir:      stateDir,
-		Hostname: hostname,
+		Dir:       stateDir,
+		Hostname:  hostname,
+		Ephemeral: true,
 	}
 }
 
@@ -76,8 +76,13 @@ func proxyBind(s *tsnet.Server, b *Binding) {
 	}
 
 	if b.Tls {
+		lc, err := s.LocalClient()
+		if err != nil {
+			log.Println(err)
+			return
+		}
 		ln = tls.NewListener(ln, &tls.Config{
-			GetCertificate: tailscale.GetCertificate,
+			GetCertificate: lc.GetCertificate,
 		})
 	}
 
@@ -132,6 +137,13 @@ func main() {
 	}
 
 	s := newTsNetServer()
+
+	err = s.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	defer s.Close()
 
 	var wg sync.WaitGroup
 	for _, binding := range bindings {
